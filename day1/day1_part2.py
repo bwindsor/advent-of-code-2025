@@ -61,22 +61,24 @@ def parse_line(line: str):
     return direction, distance
 
 
-def process_line(input_data: tuple[int,int]):
-    direction, distance = input_data
+@cuda.jit
+def process_line(input_data, output_data):
+    line_idx = cuda.blockIdx.x
+    element_idx = cuda.threadIdx.x
 
-    data = [0] * 101
-    for i in range(101):
-        if i < 100:
-            data[i] = distance // 100  # Number of full laps
-            rem = distance % 100
-            if direction == 1 and 0 < i <= rem:
-                data[i] += 1
-            elif direction == -1 and i >= 100-rem:
-                data[i] += 1
-        else:
-            data[i] = (direction * distance) % 100
+    direction = input_data[line_idx, 0]
+    distance = input_data[line_idx, 1]
 
-    return data
+    if element_idx < 100:
+        x = distance // 100  # Number of full laps
+        rem = distance % 100
+        if direction == 1 and 0 < element_idx <= rem:
+            x += 1
+        elif direction == -1 and element_idx >= 100-rem:
+            x += 1
+        output_data[line_idx, element_idx] = x
+    else:
+        output_data[line_idx, element_idx] = (direction * distance) % 100
 
 
 def next_pow2_exponent(n: int) -> int:
@@ -98,9 +100,18 @@ def day1_part2_algorithm_parallel(input_lines: Iterable[str]) -> int:
     data_for_gpu.extend([(1,0)] * new_items_required)
 
     # TODO send data_for_gpu to the GPU
+    input_data_on_host = np.array(data_for_gpu, dtype=np.int32)
+    input_data_on_gpu = cuda.to_device(input_data_on_host)
+
+    # Allocate space on gpu
+    output_data_on_gpu = cuda.device_array((len(data_for_gpu), 101), dtype=np.int32)
 
     # Run in parallel, can be done on GPU
-    all_data = list(map(process_line, data_for_gpu))
+    num_blocks = len(data_for_gpu)
+    num_threads = 101
+    process_line[num_blocks, num_threads](input_data_on_gpu, output_data_on_gpu)
+
+    all_data = output_data_on_gpu.copy_to_host()
 
     # Gather in pairs, can be done on GPU. It's a power of 2 so this will always work
     for i_gather in range(exponent):
