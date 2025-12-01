@@ -1,0 +1,12 @@
+[project]
+name = "advent-of-code-2025"
+version = "0.1.0"
+description = "Advent of code 2025"
+requires-python = ">=3.13"
+
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest >= 7.0.0",
+]
