@@ -40,13 +40,8 @@ def test_day1_part2(lines: list[str], expected_result: int) -> None:
     (["L50", "L100"], 2),
     (["L50", "L150"], 2),
     (["L50", "L201"], 3),
-    ([
-"L10",
-"L24",
-"R17",
-"R48",
-    ], 3)
+    (["L10", "L24", "R17", "R48"], 0)
 ])
 def test_day1_part2_parallel(lines: list[str], expected_result: int) -> None:
     assert day1_part2_algorithm_parallel(lines) == day1_part2_algorithm(lines)
-    #assert day1_part2_algorithm_parallel(lines) == expected_result
+    assert day1_part2_algorithm_parallel(lines) == expected_result
