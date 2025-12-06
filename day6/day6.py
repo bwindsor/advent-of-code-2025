@@ -90,14 +90,42 @@ def day6_part1_algorithm(input_filename: str) -> int:
 
 
 def day6_part2_algorithm(input_filename: str) -> int:
-    pass
+    with open(input_filename, 'rb') as f:
+        line_len = get_line_len(f)
+
+        f.seek(0, os.SEEK_END)
+        file_len = f.tell()
+        num_lines = file_len // line_len
+
+        result = 0
+        with open(input_filename, 'rb') as f_op:
+            for i_col, col_width, operator in column_iterator(f_op, line_len * (num_lines - 1), line_len):
+                data = []
+                for i_row in range(0, num_lines - 1):
+                    f.seek(i_row * line_len + i_col, os.SEEK_SET)
+                    data.append(f.read(col_width))
+
+                part_result = 0 if operator == OPERATOR_ADD else 1
+                for i_x in range(col_width):
+                    n = ''
+                    for i_row in range(0, num_lines - 1):
+                        n += chr(data[i_row][i_x])
+                    if len(n.strip()) > 0:
+                        if operator == OPERATOR_ADD:
+                            part_result += int(n)
+                        else:
+                            part_result *= int(n)
+
+                result += part_result
+
+    return result
 
 
 def main():
     this_folder = pathlib.Path(__file__)
     input_file = this_folder.parent / 'input.txt'
 
-    result = day6_part1_algorithm(str(input_file))
+    result = day6_part2_algorithm(str(input_file))
 
     return result
 

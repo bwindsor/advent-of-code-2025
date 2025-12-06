@@ -39,10 +39,11 @@ def test_day6_part1():
 
 
 def test_day3_part2_full():
-    return
-    test_input = """123 328  51 64 
-     45 64  387 23 
-      6 98  215 314
-    *   +   *   +  """
-    expected_output = 3121910778619
-    assert day6_part2_algorithm(test_input) == expected_output
+    expected_output = 3263827
+    with tempfile.TemporaryDirectory() as td:
+        with open(pathlib.Path(td) / "input.txt", "wb") as f:
+            f.write(b"123 328  51 64 \n")
+            f.write(b" 45 64  387 23 \n")
+            f.write(b"  6 98  215 314\n")
+            f.write(b"*   +   *   +  \n\n")
+        assert day6_part2_algorithm(str(pathlib.Path(td) / "input.txt")) == expected_output
