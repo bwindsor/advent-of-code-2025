@@ -217,6 +217,63 @@ class KDTree:
         return best_distance, best_node
 
 
+def find_next_connection(tree: KDTree, data: list[Point], connections: dict[int, set[int]], circuits: list[set[int]],
+                         *, skip_within_circuits: bool = False):
+    best_distance2 = tree.root_node.bounds.diagonal2()
+    p1 = None
+    p2 = None
+    for p in data:
+        exclude_idx = {p.idx}  # So we don't find the same point at distance 0
+        if p.idx in connections:
+            exclude_idx.update(connections[p.idx])  # Don't match anything which already has a wire
+        if skip_within_circuits:
+            for c in circuits:
+                if p.idx in c:
+                    exclude_idx.update(c)  # Don't look for connections in an existing circuit
+        nearest_point2, nearest_point = tree.nearest_point(p, exclude_idx)
+        if nearest_point2 < best_distance2:
+            best_distance2 = nearest_point2
+            p1 = p
+            p2 = nearest_point
+    if p1 is None or p2 is None:
+        assert p1 is not None
+        assert p2 is not None
+    return p1, p2
+
+
+def join_junction_boxes(p1: Point, p2: Point, circuits: list[set[int]], connections: dict[int, set[int]]):
+    p1_idx = -1
+    p2_idx = -1
+    for i, s in enumerate(circuits):
+        if p1.idx in s:
+            p1_idx = i
+        if p2.idx in s:
+            p2_idx = i
+
+    if p1_idx == p2_idx and p1_idx >= 0 and p2_idx >= 0:
+        # Already in the same circuit, do nothing
+        pass
+    elif p1_idx >= 0 and p2_idx < 0:
+        # Add p2 to p1's set
+        circuits[p1_idx].add(p2.idx)
+    elif p2_idx >= 0 and p1_idx < 0:
+        # Add p1 to p2's set
+        circuits[p2_idx].add(p1.idx)
+    elif p1_idx < 0 and p2_idx < 0:
+        # New circuit
+        circuits.append({p1.idx, p2.idx})
+    elif p1_idx >= 0 and p2_idx >= 0:
+        # Already in circuits but need to merge the circuits
+        circuits[p1_idx].update(circuits[p2_idx])
+        circuits.pop(p2_idx)
+    if p1.idx not in connections:
+        connections[p1.idx] = set()
+    if p2.idx not in connections:
+        connections[p2.idx] = set()
+    connections[p1.idx].add(p2.idx)
+    connections[p2.idx].add(p1.idx)
+
+
 def day8_part1_algorithm(input_str: str, max_wires: int) -> int:
     data = [Point(i, u[0], u[1], u[2]) for i, u in enumerate([[int(x) for x in line.split(',')] for line in input_str.split('\n')])]
     tree = KDTree(data)
@@ -226,58 +283,31 @@ def day8_part1_algorithm(input_str: str, max_wires: int) -> int:
 
     while wires_used < max_wires:
         print(wires_used)
-        best_distance2 = tree.root_node.bounds.diagonal2()
-        p1 = None
-        p2 = None
-        for p in data:
-            exclude_idx = {p.idx}  # So we don't find the same point at distance 0
-            if p.idx in connections:
-                exclude_idx.update(connections[p.idx])  # Don't match anything which already has a wire
-            nearest_point2, nearest_point = tree.nearest_point(p, exclude_idx)
-            if nearest_point2 < best_distance2:
-                best_distance2 = nearest_point2
-                p1 = p
-                p2 = nearest_point
+        p1, p2 = find_next_connection(tree, data, connections, circuits)
 
-        # Now we want to join p1 and p2
-        p1_idx = -1
-        p2_idx = -1
-        for i, s in enumerate(circuits):
-            if p1.idx in s:
-                p1_idx = i
-            if p2.idx in s:
-                p2_idx = i
-
-        if p1_idx == p2_idx and p1_idx >= 0 and p2_idx >= 0:
-            # Already in the same circuit, do nothing
-            pass
-        elif p1_idx >= 0 and p2_idx < 0:
-            # Add p2 to p1's set
-            circuits[p1_idx].add(p2.idx)
-        elif p2_idx >= 0 and p1_idx < 0:
-            # Add p1 to p2's set
-            circuits[p2_idx].add(p1.idx)
-        elif p1_idx < 0 and p2_idx < 0:
-            # New circuit
-            circuits.append({p1.idx, p2.idx})
-        elif p1_idx > 0 and p2_idx > 0:
-            # Already in circuits but need to merge the circuits
-            circuits[p1_idx].update(circuits[p2_idx])
-            circuits.pop(p2_idx)
+        # Now we want to join p1 and p2. Note this updates circuits and connections
+        join_junction_boxes(p1, p2, circuits, connections)
         wires_used += 1
-        if p1.idx not in connections:
-            connections[p1.idx] = set()
-        if p2.idx not in connections:
-            connections[p2.idx] = set()
-        connections[p1.idx].add(p2.idx)
-        connections[p2.idx].add(p1.idx)
 
     circuit_sizes = sorted([len(s) for s in circuits])
     return circuit_sizes[-1] * circuit_sizes[-2] * circuit_sizes[-3]
 
 
 def day8_part2_algorithm(input_str: str) -> int:
-    pass
+    data = [Point(i, u[0], u[1], u[2]) for i, u in
+            enumerate([[int(x) for x in line.split(',')] for line in input_str.split('\n')])]
+    tree = KDTree(data)
+    circuits = []
+    connections = dict()
+
+    while len(circuits) != 1 or len(circuits[0]) != len(data):
+        print(f"{len(data) - sum(len(c) for c in circuits)} size 1 circuits, {len(circuits)} circuits")
+        p1, p2 = find_next_connection(tree, data, connections, circuits, skip_within_circuits=True)
+
+        # Now we want to join p1 and p2. Note this updates circuits and connections
+        join_junction_boxes(p1, p2, circuits, connections)
+
+    return p1.x * p2.x
 
 
 def main():
@@ -286,7 +316,7 @@ def main():
 
     with open(input_file, 'r') as f:
         data = f.read().strip()
-    result = day8_part1_algorithm(data, 1000)
+    result = day8_part2_algorithm(data)
 
     return result
 
