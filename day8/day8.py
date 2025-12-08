@@ -10,9 +10,6 @@ class XYZ(NamedTuple):
     y: int
     z: int
 
-    def rotate(self) -> 'XYZ':
-        return XYZ(self.y, self.z, self.x)
-
     def distance2_to(self, other: 'XYZ') -> int:
         return (self.x - other.x) ** 2 + (self.y - other.y) ** 2 + (self.z - other.z) ** 2
 
@@ -20,9 +17,6 @@ class XYZ(NamedTuple):
 class Bounds(NamedTuple):
     minimum: XYZ
     maximum: XYZ
-
-    def rotate(self) -> 'Bounds':
-        return Bounds(self.minimum.rotate(), self.maximum.rotate())
 
     def diagonal2(self) -> int:
         return (self.maximum.x - self.minimum.x)**2 + (self.maximum.y - self.minimum.y)**2 + (self.maximum.z - self.minimum.z)**2
@@ -36,8 +30,8 @@ class Point(NamedTuple):
     def distance2_to(self, other: 'Point') -> int:
         return (self.x - other.x) ** 2 + (self.y - other.y) ** 2 + (self.z - other.z) ** 2
 
-    def xyz(self) -> XYZ:
-        return XYZ(self.x, self.y, self.z)
+    def distance2_to_xyz(self, x: int, y: int, z: int) -> int:
+        return (self.x - x) ** 2 + (self.y - y) ** 2 + (self.z - z) ** 2
 
 
 class Node:
@@ -99,7 +93,7 @@ class KDTree:
         root_node.build_children(1)
         self.root_node = root_node
 
-    def _check_edge(self, p: XYZ, bounds: Bounds):
+    def _check_edge(self, p: Point, bounds: Bounds):
         if bounds.minimum.x <= p.x <= bounds.maximum.x:
             if p.y < bounds.minimum.y and p.z < bounds.minimum.z:
                 return (p.y - bounds.minimum.y) ** 2 + (p.z - bounds.minimum.z) ** 2
@@ -109,16 +103,45 @@ class KDTree:
                 return (p.y - bounds.maximum.y) ** 2 + (p.z - bounds.minimum.z) ** 2
             elif p.y > bounds.maximum.y and p.z > bounds.maximum.z:
                 return (p.y - bounds.maximum.y) ** 2 + (p.z - bounds.maximum.z) ** 2
+        elif bounds.minimum.y <= p.y <= bounds.maximum.y:
+            if p.z < bounds.minimum.z and p.x < bounds.minimum.x:
+                return (p.z - bounds.minimum.z) ** 2 + (p.x - bounds.minimum.x) ** 2
+            elif p.z < bounds.minimum.z and p.x > bounds.maximum.x:
+                return (p.z - bounds.minimum.z) ** 2 + (p.x - bounds.maximum.x) ** 2
+            elif p.z > bounds.maximum.z and p.x < bounds.minimum.x:
+                return (p.z - bounds.maximum.z) ** 2 + (p.x - bounds.minimum.x) ** 2
+            elif p.z > bounds.maximum.z and p.x > bounds.maximum.x:
+                return (p.z - bounds.maximum.z) ** 2 + (p.x - bounds.maximum.x) ** 2
+        elif bounds.minimum.z <= p.z <= bounds.maximum.z:
+            if p.x < bounds.minimum.x and p.y < bounds.minimum.y:
+                return (p.x - bounds.minimum.x) ** 2 + (p.y - bounds.minimum.y) ** 2
+            elif p.x < bounds.minimum.x and p.y > bounds.maximum.y:
+                return (p.x - bounds.minimum.x) ** 2 + (p.y - bounds.maximum.y) ** 2
+            elif p.x > bounds.maximum.x and p.y < bounds.minimum.y:
+                return (p.x - bounds.maximum.x) ** 2 + (p.y - bounds.minimum.y) ** 2
+            elif p.x > bounds.maximum.x and p.y > bounds.maximum.y:
+                return (p.x - bounds.maximum.x) ** 2 + (p.y - bounds.maximum.y) ** 2
         return None
 
-    def _check_face(self, p: XYZ, bounds: Bounds):
-        if bounds.minimum.x <= p.x <= bounds.maximum.x and bounds.minimum.y <= p.y <= bounds.maximum.y and p.z > bounds.maximum.z:
-            return (p.z - bounds.maximum.z)**2
-        if bounds.minimum.x <= p.x <= bounds.maximum.x and bounds.minimum.y <= p.y <= bounds.maximum.y and p.z < bounds.minimum.z:
-            return (bounds.minimum.z - p.z)**2
+    def _check_face(self, p: Point, bounds: Bounds):
+        if bounds.minimum.x <= p.x <= bounds.maximum.x and bounds.minimum.y <= p.y <= bounds.maximum.y:
+            if p.z > bounds.maximum.z:
+                return (p.z - bounds.maximum.z)**2
+            elif p.z < bounds.minimum.z:
+                return (bounds.minimum.z - p.z)**2
+        if bounds.minimum.y <= p.y <= bounds.maximum.y and bounds.minimum.z <= p.z <= bounds.maximum.z:
+            if p.x > bounds.maximum.x:
+                return (p.x - bounds.maximum.x)**2
+            elif p.x < bounds.minimum.x:
+                return (bounds.minimum.x - p.x)**2
+        if bounds.minimum.z <= p.z <= bounds.maximum.z and bounds.minimum.x <= p.x <= bounds.maximum.x:
+            if p.y > bounds.maximum.y:
+                return (p.y - bounds.maximum.y)**2
+            elif p.y < bounds.minimum.y:
+                return (bounds.minimum.y - p.y)**2
         return None
 
-    def nearest_bbox_point2(self, point: XYZ, bounds: Bounds):
+    def nearest_bbox_point2(self, point: Point, bounds: Bounds):
         # Case inside box
         if bounds.minimum.x <= point.x <= bounds.maximum.x and bounds.minimum.y <= point.y <= bounds.maximum.y and bounds.minimum.z <= point.z <= bounds.maximum.z:
             return 0
@@ -127,51 +150,45 @@ class KDTree:
         d = self._check_face(point, bounds)
         if d is not None:
             return d
-        d = self._check_face(point.rotate(), bounds.rotate())
-        if d is not None:
-            return d
-        d = self._check_face(point.rotate().rotate(), bounds.rotate().rotate())
-        if d is not None:
-            return d
 
         # Case point is nearest an edge
         d = self._check_edge(point, bounds)
         if d is not None:
             return d
-        d = self._check_edge(point.rotate(), bounds.rotate())
-        if d is not None:
-            return d
-        d = self._check_edge(point.rotate().rotate(), bounds.rotate().rotate())
-        if d is not None:
-            return d
 
         # Case point is nearest a vertex
-        if point.x < bounds.minimum.x and point.y < bounds.minimum.y and point.z < bounds.minimum.z:
-            return point.distance2_to(XYZ(bounds.minimum.x, bounds.minimum.y, bounds.minimum.z))
-        if point.x < bounds.minimum.x and point.y < bounds.minimum.y and point.z > bounds.maximum.z:
-            return point.distance2_to(XYZ(bounds.minimum.x, bounds.minimum.y, bounds.maximum.z))
-        if point.x < bounds.minimum.x and point.y > bounds.maximum.y and point.z < bounds.minimum.z:
-            return point.distance2_to(XYZ(bounds.minimum.x, bounds.maximum.y, bounds.minimum.z))
-        if point.x < bounds.minimum.x and point.y > bounds.maximum.y and point.z > bounds.maximum.z:
-            return point.distance2_to(XYZ(bounds.minimum.x, bounds.maximum.y, bounds.maximum.z))
-        if point.x > bounds.maximum.x and point.y < bounds.minimum.y and point.z < bounds.minimum.z:
-            return point.distance2_to(XYZ(bounds.maximum.x, bounds.minimum.y, bounds.minimum.z))
-        if point.x > bounds.maximum.x and point.y < bounds.minimum.y and point.z > bounds.maximum.z:
-            return point.distance2_to(XYZ(bounds.maximum.x, bounds.minimum.y, bounds.maximum.z))
-        if point.x > bounds.maximum.x and point.y > bounds.maximum.y and point.z < bounds.minimum.z:
-            return point.distance2_to(XYZ(bounds.maximum.x, bounds.maximum.y, bounds.minimum.z))
-        if point.x > bounds.maximum.x and point.y > bounds.maximum.y and point.z > bounds.maximum.z:
-            return point.distance2_to(XYZ(bounds.maximum.x, bounds.maximum.y, bounds.maximum.z))
+        if point.x < bounds.minimum.x:
+            if point.y < bounds.minimum.y:
+                if point.z < bounds.minimum.z:
+                    return point.distance2_to_xyz(bounds.minimum.x, bounds.minimum.y, bounds.minimum.z)
+                elif point.z > bounds.maximum.z:
+                    return point.distance2_to_xyz(bounds.minimum.x, bounds.minimum.y, bounds.maximum.z)
+            elif point.y > bounds.maximum.y:
+                if point.z < bounds.minimum.z:
+                    return point.distance2_to_xyz(bounds.minimum.x, bounds.maximum.y, bounds.minimum.z)
+                elif point.z > bounds.maximum.z:
+                    return point.distance2_to_xyz(bounds.minimum.x, bounds.maximum.y, bounds.maximum.z)
+        elif point.x > bounds.maximum.x:
+            if point.y < bounds.minimum.y:
+                if point.z < bounds.minimum.z:
+                    return point.distance2_to_xyz(bounds.maximum.x, bounds.minimum.y, bounds.minimum.z)
+                elif point.z > bounds.maximum.z:
+                    return point.distance2_to_xyz(bounds.maximum.x, bounds.minimum.y, bounds.maximum.z)
+            elif point.y > bounds.maximum.y:
+                if point.z < bounds.minimum.z:
+                    return point.distance2_to_xyz(bounds.maximum.x, bounds.maximum.y, bounds.minimum.z)
+                elif point.z > bounds.maximum.z:
+                    return point.distance2_to_xyz(bounds.maximum.x, bounds.maximum.y, bounds.maximum.z)
 
         raise Exception("No nearest point found")
 
-    def nearest_point(self, point: Point) -> tuple[int, Point]:
-        best_distance, best_node = self._nearest_point(point, self.root_node, self.root_node.bounds.diagonal2(), self.root_node)
+    def nearest_point(self, point: Point, exclude_idx: set[int]) -> tuple[int, Point]:
+        best_distance, best_node = self._nearest_point(point, self.root_node, self.root_node.bounds.diagonal2(), self.root_node, exclude_idx)
         return best_distance, best_node.p
 
-    def _nearest_point(self, point: Point, node: Node, best_distance: int, best_node: Node) -> tuple[int, Node]:
+    def _nearest_point(self, point: Point, node: Node, best_distance: int, best_node: Node, exclude_idx: set[int]) -> tuple[int, Node]:
         # Traverse the tree and ignore any branches whose bounding box is further than the best distance found so far
-        if node.p.idx != point.idx:
+        if node.p.idx not in exclude_idx:
             possible_distance = point.distance2_to(node.p)
             if possible_distance < best_distance:
                 best_distance = possible_distance
@@ -179,20 +196,20 @@ class KDTree:
 
         # Left
         if node.left_child is not None:
-            nearest_point_of_bbox = self.nearest_bbox_point2(point.xyz(), node.left_child.bounds)
+            nearest_point_of_bbox = self.nearest_bbox_point2(point, node.left_child.bounds)
             if nearest_point_of_bbox < best_distance:
                 # Consider this node
-                possible_distance, possible_node = self._nearest_point(point, node.left_child, best_distance, best_node)
+                possible_distance, possible_node = self._nearest_point(point, node.left_child, best_distance, best_node, exclude_idx)
                 if possible_distance < best_distance:
                     best_distance = possible_distance
                     best_node = possible_node
 
         # Right
         if node.right_child is not None:
-            nearest_point_of_bbox = self.nearest_bbox_point2(point.xyz(), node.right_child.bounds)
+            nearest_point_of_bbox = self.nearest_bbox_point2(point, node.right_child.bounds)
             if nearest_point_of_bbox < best_distance:
                 # Consider this node
-                possible_distance, possible_node = self._nearest_point(point, node.right_child, best_distance, best_node)
+                possible_distance, possible_node = self._nearest_point(point, node.right_child, best_distance, best_node, exclude_idx)
                 if possible_distance < best_distance:
                     best_distance = possible_distance
                     best_node = possible_node
@@ -200,18 +217,23 @@ class KDTree:
         return best_distance, best_node
 
 
-def day8_part1_algorithm(input_str: str) -> int:
+def day8_part1_algorithm(input_str: str, max_wires: int) -> int:
     data = [Point(i, u[0], u[1], u[2]) for i, u in enumerate([[int(x) for x in line.split(',')] for line in input_str.split('\n')])]
     tree = KDTree(data)
     circuits = []
+    connections = dict()
     wires_used = 0
 
-    while wires_used < 10:
+    while wires_used < max_wires:
+        print(wires_used)
         best_distance2 = tree.root_node.bounds.diagonal2()
         p1 = None
         p2 = None
         for p in data:
-            nearest_point2, nearest_point = tree.nearest_point(p)
+            exclude_idx = {p.idx}  # So we don't find the same point at distance 0
+            if p.idx in connections:
+                exclude_idx.update(connections[p.idx])  # Don't match anything which already has a wire
+            nearest_point2, nearest_point = tree.nearest_point(p, exclude_idx)
             if nearest_point2 < best_distance2:
                 best_distance2 = nearest_point2
                 p1 = p
@@ -232,15 +254,23 @@ def day8_part1_algorithm(input_str: str) -> int:
         elif p1_idx >= 0 and p2_idx < 0:
             # Add p2 to p1's set
             circuits[p1_idx].add(p2.idx)
-            wires_used += 1
         elif p2_idx >= 0 and p1_idx < 0:
             # Add p1 to p2's set
             circuits[p2_idx].add(p1.idx)
-            wires_used += 1
         elif p1_idx < 0 and p2_idx < 0:
             # New circuit
             circuits.append({p1.idx, p2.idx})
-            wires_used += 1
+        elif p1_idx > 0 and p2_idx > 0:
+            # Already in circuits but need to merge the circuits
+            circuits[p1_idx].update(circuits[p2_idx])
+            circuits.pop(p2_idx)
+        wires_used += 1
+        if p1.idx not in connections:
+            connections[p1.idx] = set()
+        if p2.idx not in connections:
+            connections[p2.idx] = set()
+        connections[p1.idx].add(p2.idx)
+        connections[p2.idx].add(p1.idx)
 
     circuit_sizes = sorted([len(s) for s in circuits])
     return circuit_sizes[-1] * circuit_sizes[-2] * circuit_sizes[-3]
@@ -256,7 +286,7 @@ def main():
 
     with open(input_file, 'r') as f:
         data = f.read().strip()
-    result = day8_part1_algorithm(data)
+    result = day8_part1_algorithm(data, 1000)
 
     return result
 

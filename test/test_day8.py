@@ -12,9 +12,10 @@ def test_kdtree_nearest_point():
         Point(105, 10, 10, 10),
     ]
     tree = KDTree(points)
-    assert tree.nearest_point(Point(0, 0, 0, 0)) == (0, points[0])
-    assert tree.nearest_point(Point(0, 10, 0, 10)) == (0, points[3])
-    assert tree.nearest_point(Point(0, 10, 11, 10)) == (1, points[5])
+    assert tree.nearest_point(Point(0, 0, 0, 0), set()) == (0, points[0])
+    assert tree.nearest_point(Point(100, 0, 0, 0), {100}) == (10**2, points[2])
+    assert tree.nearest_point(Point(0, 10, 0, 10), set()) == (0, points[3])
+    assert tree.nearest_point(Point(0, 10, 11, 10), set()) == (1, points[5])
 
 
 def test_kdtree_construct():
@@ -72,7 +73,7 @@ def test_day8_part1_full():
 984,92,344
 425,690,689""".replace("\r", "")
     expected_output = 40
-    assert day8_part1_algorithm(test_input) == expected_output
+    assert day8_part1_algorithm(test_input, 10) == expected_output
 
 
 def test_day8_part2_full():
