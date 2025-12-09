@@ -50,8 +50,6 @@ def day9_part2_algorithm(input_str: str) -> int:
     edge_tile_locations = get_edge_tile_locations(red_tile_locations)
 
     max_d = 0
-    max_i = -1
-    max_j = -1
     for i in range(len(red_tile_locations)):
         for j in range(i+1, len(red_tile_locations)):
             d = (abs(red_tile_locations[i][0] - red_tile_locations[j][0]) + 1) * (abs(red_tile_locations[i][1] - red_tile_locations[j][1]) + 1)
@@ -63,11 +61,6 @@ def day9_part2_algorithm(input_str: str) -> int:
                     is_vector_inside(edge_vectors_with_start, (red_tile_locations[j][0], red_tile_locations[j][1]), (red_tile_locations[j][0], red_tile_locations[i][1])) and \
                     is_vector_inside(edge_vectors_with_start, (red_tile_locations[j][0], red_tile_locations[i][1]), (red_tile_locations[i][0], red_tile_locations[i][1])):
                     max_d = d
-                    max_i = i
-                    max_j = j
-    print(red_tile_locations[max_i])
-    print(red_tile_locations[max_j])
-    print(max_d)
     return max_d
 
 
