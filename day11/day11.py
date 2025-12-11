@@ -44,7 +44,7 @@ def day11_part2_algorithm(input_str: str) -> int:
             x.add(s)
         graph[part[0]] = x
 
-    count = {"you": (1, 0, 0)}  # Format is (count, count_visited_dac, count_visited_fft)
+    count = {"svr": (1, 0, 0, 0)}  # Format is (count, count_visited_dac, count_visited_fft, count_visited_both)
 
     result = 0
     while True:
@@ -53,11 +53,21 @@ def day11_part2_algorithm(input_str: str) -> int:
             next_targets = graph[k]
             for n in next_targets:
                 if n in count_part:
-                    count_part[n][0] += v
+                    count_part[n] = (
+                        count_part[n][0] + v[0],
+                        count_part[n][1] + (v[0] if k == "dac" else v[1]),
+                        count_part[n][2] + (v[0] if k == "fft" else v[2]),
+                        count_part[n][3] + (v[1] if k == "fft" else (v[2] if k == "dac" else v[3]))
+                    )
                 else:
-                    count_part[n][0] = v
+                    count_part[n] = (
+                        v[0],
+                        v[0] if k == "dac" else v[1],
+                        v[0] if k == "fft" else v[2],
+                        v[1] if k == "fft" else (v[2] if k == "dac" else v[3]),
+                    )
         count = count_part
-        result += count.pop("out", (0, 0, 0))[0]
+        result += count.pop("out", (0, 0, 0, 0))[3]
         if len(count) == 0:
             break
 
@@ -70,7 +80,7 @@ def main():
 
     with open(input_file, 'r') as f:
         data = f.read().strip()
-    result = day11_part1_algorithm(data)
+    result = day11_part2_algorithm(data)
 
     return result
 
